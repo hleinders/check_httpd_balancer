@@ -1,6 +1,6 @@
 name: check_httpd_balancer
-description: "file:///blob/master/check_httpd_balancer/README.md"
-url: "https://github.com/hleinders/Nagios-Plugins/tree/master/check_httpd_balancer"
+description: "file:///README.md"
+url: "https://github.com/hleinders/check_httpd_balancer.git"
 tags: ~
 vendor: Linux
 target: Service
@@ -13,6 +13,6 @@ releases:
     files:
       -
         name: check_httpd_balancer
-        url: "file:///blob/master/check_httpd_balancer/bin/check_httpd_balancer_linux_x64"
+        url: "file:///blob/master/bin/check_httpd_balancer_linux_x64"
         description: "First release"
         checksum: ba9a26cbd0b10fcf13d37257ba730b68
