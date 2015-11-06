@@ -41,6 +41,7 @@ Das Plugin folgt den Vorgaben für Nagios-Plugins für die Standard-Optionen und
       -M=„192.168.0.1:01 192.168.0.2:02“: List of worker mappings (IP):(jvmRoute-suffix)
       -S=false: Connect via SSL. Port defaults to 443
       -V=false: Show version
+      -C=„“: Read settings from config file (JSON)
       -a=„“: Basic Auth: password
       -c=75: Critical threshold for offline workers (in %)
       -d=false: Debug mode
@@ -53,3 +54,15 @@ Das Plugin folgt den Vorgaben für Nagios-Plugins für die Standard-Optionen und
 
 Der Aufruf zur Prüfung der Balancer-Pools auf einer angenommenen  web1.example.com mit drei angeschlossenen Tomcats wäre demnach:
     $ check_httpd_balancer -M „172.16.1.1:01 172.16.1.2:02 172.16.1.3:03“ -H web1.example.com -u /balancer-manager
+
+Alternativ können die Werte für Host, Post, SSL und vor allem die Workermap auch aus einer Konfigurationsdatei gelesen werden. Das Format ist:
+	{
+	  "Host": String,
+	  "UseSSL": Boolean,
+	  "URL": String,
+	  "Port": String,
+	  "WorkerMap": [Array of Strings]
+	}
+
+Eine Beispieldatei finden Sie im Verzeichnis „/etc“. Damit reduziert sich der Aufruf zu:
+    $ check_httpd_balancer -C config.json

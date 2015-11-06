@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// NewWorkerMapping is used to create a new mapping from the command line parameter (-M)
-func NewWorkerMapping(mapList string) WorkerMapping {
+// newWorkerMapping is used to create a new mapping from the command line parameter (-M)
+func newWorkerMapping(mapList string) WorkerMapping {
 	wmap := make(WorkerMapping)
 
 	reSplitString := regexp.MustCompile(`(\S+):(\S+)`)
@@ -22,14 +22,14 @@ func NewWorkerMapping(mapList string) WorkerMapping {
 	return wmap
 }
 
-// CheckPools is used to check the status of all pools from a list
-func CheckPools(flags FlagType, pools []BalancerPool) (string, int) {
+// checkPools is used to check the status of all pools from a list
+func checkPools(flags flagType, pools []BalancerPool) (string, int) {
 	var wAddr, msg string
 	var fails, suspect, good, problemBears []string
 	var p *BalancerPool
 	var workerStat bool
 
-	wmap := NewWorkerMapping(flags.WorkerMap)
+	wmap := newWorkerMapping(flags.WorkerMap)
 
 	globalStatus := OK
 
@@ -38,7 +38,7 @@ func CheckPools(flags FlagType, pools []BalancerPool) (string, int) {
 		// don't work on the copy :-)
 		p = &pools[i]
 
-		if flags.Debug {
+		if flags.Debug || flags.FullStatus {
 			fmt.Fprintf(os.Stderr, "Check pool: %s\n", p.Name)
 		}
 		workerStat = false
@@ -46,14 +46,14 @@ func CheckPools(flags FlagType, pools []BalancerPool) (string, int) {
 		// check every worker from member list
 		for j := range p.Workers {
 			w := p.Workers[j]
-			if flags.Debug {
+			if flags.Debug || flags.FullStatus {
 				fmt.Fprintf(os.Stderr, "  > Worker: %s on %s (type: %s) -> ", w.Address, w.Route, w.Type)
 			}
 
 			// Is worker online?
 			if !strings.Contains(w.Status, "Ok") {
 				// ignore it
-				if flags.Debug {
+				if flags.Debug || flags.FullStatus {
 					fmt.Fprintln(os.Stderr, "Fail!")
 				}
 				w.Status = "ERR"
@@ -66,7 +66,7 @@ func CheckPools(flags FlagType, pools []BalancerPool) (string, int) {
 
 			// Is worker unknown?
 			if wmap[wAddr] == "" {
-				if flags.Debug {
+				if flags.Debug || flags.FullStatus {
 					fmt.Fprintln(os.Stderr, "Mapping error!")
 				}
 				w.Status = "ERR"
@@ -78,11 +78,11 @@ func CheckPools(flags FlagType, pools []BalancerPool) (string, int) {
 				p.StatusOK = false
 				w.Status = "ERR"
 				problemBears = append(problemBears, w.Route)
-				if flags.Debug {
+				if flags.Debug || flags.FullStatus {
 					fmt.Fprintln(os.Stderr, "Fail!")
 				}
 			} else {
-				if flags.Debug {
+				if flags.Debug || flags.FullStatus {
 					fmt.Fprintln(os.Stderr, "Ok.")
 				}
 
@@ -103,18 +103,18 @@ func CheckPools(flags FlagType, pools []BalancerPool) (string, int) {
 			// Even one disordered pool or one pool with too few workers is critical
 			globalStatus = ErrCrit
 			fails = append(fails, p.Name)
-			if flags.Debug {
+			if flags.Debug || flags.FullStatus {
 				fmt.Fprintln(os.Stderr, "  > Status: FAIL!")
 			}
 		} else if disfunctRatio >= flags.Warning {
 			globalStatus = ErrWarn
 			suspect = append(suspect, p.Name)
-			if flags.Debug {
+			if flags.Debug || flags.FullStatus {
 				fmt.Fprintln(os.Stderr, "  > Status: Warn!")
 			}
 		} else {
 			good = append(good, p.Name)
-			if flags.Debug {
+			if flags.Debug || flags.FullStatus {
 				fmt.Fprintln(os.Stderr, "  > Status: Ok.")
 			}
 		}

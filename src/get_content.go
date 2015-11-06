@@ -11,7 +11,7 @@ import (
 )
 
 // GetContent is used to retrieve the content of a servers balancer status page
-func GetContent(flags FlagType) (string, error) {
+func GetContent(flags flagType) (string, error) {
 	var err error
 	var body []byte
 	var proto string

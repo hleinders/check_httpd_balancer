@@ -41,6 +41,7 @@ The plugin follows the [*Nagios Plugin Development Guidelines*](https://nagios-p
       -M=„192.168.0.1:01 192.168.0.2:02“: List of worker mappings (IP):(jvmRoute-suffix)
       -S=false: Connect via SSL. Port defaults to 443
       -V=false: Show version
+			-C=„“: Read settings from config file (JSON)
       -a=„“: Basic Auth: password
       -c=75: Critical threshold for offline workers (in %)
       -d=false: Debug mode
@@ -53,3 +54,16 @@ The plugin follows the [*Nagios Plugin Development Guidelines*](https://nagios-p
 
 The call to an imaginary balancer pool status check of a server at web1.example.com with three backend tomcat workers with jvmRoutes „tc01“, „tc02“ and „tc03“ therefore would be:
     $ check_httpd_balancer -M „172.16.1.1:01 172.16.1.2:02 172.16.1.3:03“ -H web1.example.com -u /balancer-manager
+
+Alternatively the values for Host, Post, SSL and Workermap can be read from a configuration file. The syntax is:
+	{
+	  "Host": String,
+	  "UseSSL": Boolean,
+	  "URL": String,
+	  "Port": String,
+	  "WorkerMap": [Array of Strings]
+	}
+
+An example json can be found in „/etc“. 
+With a configuration file the call simplifies to:
+    $ check_httpd_balancer -C config.json

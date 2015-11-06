@@ -16,8 +16,8 @@ func stripTags(s string) string {
 	return reStrip.ReplaceAllString(s, " ")
 }
 
-// ParseContent is used to analyse the content of a balancer status page
-func ParseContent(flags FlagType, content string) ([]BalancerPool, error) {
+// parseContent is used to analyse the content of a balancer status page
+func parseContent(flags flagType, content string) ([]BalancerPool, error) {
 	var err error
 	var poolList []BalancerPool
 

@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	appVersion = "0.4"
-	author     = "Harald Leinders (2015-05-29) / harald@leinders.de"
+	appVersion = "0.6"
+	author     = "Harald Leinders (2015-11-08) / harald@leinders.de"
 )
 
 // Nagios return codes
@@ -34,15 +34,29 @@ const (
 	ErrUnknown = 3
 )
 
-// FlagType is a compound type for command line flags
-type FlagType struct {
+// flagType is a compound type for command line flags
+type flagType struct {
 	Verbose, Debug, DryRun    bool
 	Version, UseSSL           bool
+	FullStatus                bool
 	Hostname, IPAddress, Port string
 	TimeOut, URL              string
 	Warning, Critical         int
 	User, Password            string
 	WorkerMap                 string
+	ConfigFile                string
+}
+
+// Update is a function to populate the flags from a config file
+func (f *flagType) Update(c configType) {
+	f.Port = choice(c.Port, f.Port, "")
+	f.Hostname = choice(c.Host, f.Hostname, "127.0.0.1")
+	f.URL = choice(c.URL, f.URL, "/balancer-manager")
+	f.UseSSL = f.UseSSL || c.UseSSL
+
+	if len(c.WorkerMap) > 0 && f.WorkerMap == "" {
+		f.WorkerMap = strings.Join(c.WorkerMap, " ")
+	}
 }
 
 // PoolWorker represents a balancer worker
@@ -73,6 +87,16 @@ func (p BalancerPool) String() string {
 type WorkerMapping map[string]string
 
 // Helper functions
+func choice(a, b, c string) string {
+	if a != "" {
+		return a
+	}
+	if b != "" {
+		return b
+	}
+	return c
+}
+
 func check(e error) {
 	if e != nil {
 		fmt.Println(e)
@@ -95,10 +119,12 @@ func usage() {
 }
 
 func main() {
-	var flags FlagType
+	var flags flagType
+	var config configType
 	var poolList []BalancerPool
 	var status string
 	var rcode int
+	var err error
 
 	// Command line parsing
 	// Bools
@@ -106,28 +132,47 @@ func main() {
 	flag.BoolVar(&flags.Verbose, "v", false, "Verbose mode")
 	flag.BoolVar(&flags.DryRun, "n", false, "Dry run")
 	flag.BoolVar(&flags.Version, "V", false, "Show version")
+	flag.BoolVar(&flags.FullStatus, "F", false, "Show full balancer status")
 	flag.BoolVar(&flags.UseSSL, "S", false, "Connect via SSL. Port defaults to 443")
 
 	// ArgOpts
 	flag.IntVar(&flags.Warning, "w", 50, "Warning threshold for offline workers (in %)")
 	flag.IntVar(&flags.Critical, "c", 75, "Critical threshold for offline workers (in %)")
 
+	flag.StringVar(&flags.ConfigFile, "C", "", "Read settings from config file")
 	flag.StringVar(&flags.Hostname, "H", "localhost", "Host name")
 	flag.StringVar(&flags.IPAddress, "I", "127.0.0.1", "Host ip address (not implemented yet)")
-	flag.StringVar(&flags.URL, "u", "/balancer-manager", "URL to check")
+	flag.StringVar(&flags.URL, "u", "", "URL to check (default: /balancer-manager)")
 	flag.StringVar(&flags.Port, "p", "", "TCP port")
 	flag.StringVar(&flags.User, "l", "", "Basic Auth: user")
 	flag.StringVar(&flags.Password, "a", "", "Basic Auth: password")
-	flag.StringVar(&flags.WorkerMap, "M", "192.168.0.1:01 192.168.0.2:02", "List of worker mappings (IP):(jvmRoute-suffix)")
+	flag.StringVar(&flags.WorkerMap, "M", "", "List of worker mappings (IP):(jvmRoute-suffix)")
 
 	flag.Usage = usage
 
 	flag.Parse()
 
+	// no args
 	if len(os.Args) < 2 {
-		// no args
 		usage()
 		os.Exit(OK)
+	}
+
+	// Read config file, if any
+	if flags.ConfigFile != "" {
+		config, err = readConfig(flags)
+		check(err)
+		if flags.Debug {
+			fmt.Println("Config read:")
+			fmt.Println(prettyPrintJSON(config))
+		}
+	}
+
+	// update flags from config file
+	flags.Update(config)
+
+	if flags.Debug {
+		fmt.Printf("Flags found:\n%+v\n", flags)
 	}
 
 	if flags.Port != "" {
@@ -143,13 +188,13 @@ func main() {
 	check(err)
 
 	// parse content for balancer pools
-	poolList, err = ParseContent(flags, content)
+	poolList, err = parseContent(flags, content)
 	check(err)
 
 	// check pools
-	status, rcode = CheckPools(flags, poolList)
+	status, rcode = checkPools(flags, poolList)
 
-	if flags.Debug {
+	if flags.Debug || flags.FullStatus {
 		fmt.Fprintf(os.Stderr, "\nPools found: %d\n\n", len(poolList))
 	}
 

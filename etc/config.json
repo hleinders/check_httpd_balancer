@@ -1,0 +1,10 @@
+{
+  "Host": "www.example.com",
+  "UseSSL": false,
+  "URL": "/balancer-manager",
+  "Port": "80",
+  "WorkerMap": [
+    "192.168.0.1:01",
+    "192.168.0.2:02"
+  ]
+}
