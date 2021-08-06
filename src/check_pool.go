@@ -15,7 +15,9 @@ func newWorkerMapping(mapList string) WorkerMapping {
 
 	for _, l := range reSplitString.FindAllStringSubmatch(mapList, -1) {
 		if len(l) > 2 {
-			wmap[l[1]] = l[2]
+			wrkr := l[1]
+			mpr := l[2]
+			wmap[wrkr] = append(wmap[wrkr], mpr)
 		}
 	}
 
@@ -65,7 +67,7 @@ func checkPools(flags flagType, pools []BalancerPool) (string, int) {
 			wAddr = strings.Split(w.Address, ":")[0]
 
 			// Is worker unknown?
-			if wmap[wAddr] == "" {
+			if len(wmap[wAddr]) == 0 {
 				if flags.Debug || flags.FullStatus {
 					fmt.Fprintln(os.Stderr, "Mapping error!")
 				}
@@ -74,7 +76,14 @@ func checkPools(flags flagType, pools []BalancerPool) (string, int) {
 			}
 
 			// Pool worker disordered?
-			if !strings.HasSuffix(w.Route, wmap[wAddr]) {
+			mapFound := false
+			for _, mp := range wmap[wAddr] {
+				if strings.HasSuffix(w.Route, mp) {
+					mapFound = true
+				}
+			}
+
+			if !mapFound {
 				p.StatusOK = false
 				w.Status = "ERR"
 				problemBears = append(problemBears, w.Route)
@@ -99,7 +108,7 @@ func checkPools(flags flagType, pools []BalancerPool) (string, int) {
 		// now evaluate the balancer conditions:
 		disfunctRatio := int(float64(100) * (float64(1) - float64(p.WorkersOK)/float64(p.WorkersCount)))
 
-		if p.StatusOK == false || disfunctRatio >= flags.Critical {
+		if !p.StatusOK || disfunctRatio >= flags.Critical {
 			// Even one disordered pool or one pool with too few workers is critical
 			globalStatus = ErrCrit
 			fails = append(fails, p.Name)

@@ -14,37 +14,40 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	flag "github.com/spf13/pflag"
 )
 
 const (
-	appVersion = "0.6"
-	author     = "Harald Leinders (2015-11-08) / harald@leinders.de"
+	appVersion = "1.1"
+	author     = "Harald Leinders (2021-08-06) / harald@leinders.de"
 )
 
 // Nagios return codes
 const (
-	OK         = 0
-	ErrWarn    = 1
-	ErrCrit    = 2
-	ErrUnknown = 3
+	OK = iota
+	ErrWarn
+	ErrCrit
+	ErrUnknown
 )
+
+var agentString = "Golang: Apache Balancer Check (" + appVersion + ")"
 
 // flagType is a compound type for command line flags
 type flagType struct {
-	Verbose, Debug, DryRun    bool
-	Version, UseSSL           bool
-	FullStatus                bool
-	Hostname, IPAddress, Port string
-	TimeOut, URL              string
-	Warning, Critical         int
-	User, Password            string
-	WorkerMap                 string
-	ConfigFile                string
+	Help, Verbose, Debug, DryRun bool
+	Version, UseSSL              bool
+	FullStatus                   bool
+	Hostname, IPAddress, Port    string
+	TimeOut, URL, Agent          string
+	Warning, Critical            int
+	User, Password               string
+	WorkerMap                    string
+	ConfigFile                   string
 }
 
 // Update is a function to populate the flags from a config file
@@ -67,6 +70,7 @@ type PoolWorker struct {
 // BalancerPool represents an apache mod_proxy balancer pool
 type BalancerPool struct {
 	Name          string
+	Nonce         string
 	StickySession string
 	StatusOK      bool
 	WorkersOK     int
@@ -84,7 +88,7 @@ func (p BalancerPool) String() string {
 }
 
 // WorkerMapping is a helper type for the mapping of worker address to jvmRoute value
-type WorkerMapping map[string]string
+type WorkerMapping map[string][]string
 
 // Helper functions
 func choice(a, b, c string) string {
@@ -108,7 +112,6 @@ func version() {
 	fmt.Fprintf(os.Stderr, "Plugin:   %s\n", filepath.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "Version:  %s\n", appVersion)
 	fmt.Fprintf(os.Stderr, "Author:   %s\n", author)
-	os.Exit(0)
 }
 
 func usage() {
@@ -127,30 +130,45 @@ func main() {
 	var err error
 
 	// Command line parsing
+	// Iniitial flags settings
+	flag.Usage = usage
+	flag.CommandLine.SortFlags = false
+
 	// Bools
-	flag.BoolVar(&flags.Debug, "d", false, "Debug mode")
-	flag.BoolVar(&flags.Verbose, "v", false, "Verbose mode")
-	flag.BoolVar(&flags.DryRun, "n", false, "Dry run")
-	flag.BoolVar(&flags.Version, "V", false, "Show version")
-	flag.BoolVar(&flags.FullStatus, "F", false, "Show full balancer status")
-	flag.BoolVar(&flags.UseSSL, "S", false, "Connect via SSL. Port defaults to 443")
+	flag.BoolVarP(&flags.Help, "help", "h", false, "Show help")
+	flag.BoolVarP(&flags.Debug, "debug", "d", false, "Debug mode")
+	flag.BoolVarP(&flags.Verbose, "verbose", "v", false, "Verbose mode")
+	flag.BoolVarP(&flags.DryRun, "dry-run", "n", false, "Dry run")
+	flag.BoolVarP(&flags.Version, "version", "V", false, "Show version")
+	flag.BoolVarP(&flags.FullStatus, "full", "F", false, "Show full balancer status")
+	flag.BoolVarP(&flags.UseSSL, "ssl", "S", false, "Connect via SSL. Port defaults to 443")
 
 	// ArgOpts
-	flag.IntVar(&flags.Warning, "w", 50, "Warning threshold for offline workers (in %)")
-	flag.IntVar(&flags.Critical, "c", 75, "Critical threshold for offline workers (in %)")
+	flag.StringVarP(&flags.Agent, "agent", "A", agentString, "user agent")
+	flag.IntVarP(&flags.Warning, "warning", "w", 50, "Warning `threshold` for offline workers (in %)")
+	flag.IntVarP(&flags.Critical, "critical", "c", 75, "Critical `threshold` for offline workers (in %)")
 
-	flag.StringVar(&flags.ConfigFile, "C", "", "Read settings from config file")
-	flag.StringVar(&flags.Hostname, "H", "localhost", "Host name")
-	flag.StringVar(&flags.IPAddress, "I", "127.0.0.1", "Host ip address (not implemented yet)")
-	flag.StringVar(&flags.URL, "u", "", "URL to check (default: /balancer-manager)")
-	flag.StringVar(&flags.Port, "p", "", "TCP port")
-	flag.StringVar(&flags.User, "l", "", "Basic Auth: user")
-	flag.StringVar(&flags.Password, "a", "", "Basic Auth: password")
-	flag.StringVar(&flags.WorkerMap, "M", "", "List of worker mappings (IP):(jvmRoute-suffix)")
+	flag.StringVarP(&flags.ConfigFile, "config", "C", "", "Read settings from config file")
+	flag.StringVarP(&flags.Hostname, "host", "H", "localhost", "`Host` name")
+	flag.StringVarP(&flags.IPAddress, "ip", "I", "", "Host ip `address` (set 'host' flag to select a vhost)")
+	flag.StringVarP(&flags.URL, "url", "U", "", "`URL` to check (default: /balancer-manager)")
+	flag.StringVarP(&flags.Port, "port", "P", "", "TCP `port`")
+	flag.StringVarP(&flags.User, "user", "u", "", "Basic Auth: `user`")
+	flag.StringVarP(&flags.Password, "pass", "p", "", "Basic Auth: `password`")
+	flag.StringVarP(&flags.WorkerMap, "map", "M", "", "List of worker `mappings` (IP):(jvmRoute-suffix)")
 
-	flag.Usage = usage
-
+	flag.CommandLine.MarkHidden("debug")
 	flag.Parse()
+
+	if flags.Help {
+		flag.Usage()
+		os.Exit(OK)
+	}
+
+	if flags.Version {
+		version()
+		os.Exit(OK)
+	}
 
 	// no args
 	if len(os.Args) < 2 {
@@ -173,14 +191,6 @@ func main() {
 
 	if flags.Debug {
 		fmt.Printf("Flags found:\n%+v\n", flags)
-	}
-
-	if flags.Port != "" {
-		flags.Hostname = fmt.Sprintf("%s:%s", flags.Hostname, flags.Port)
-	}
-
-	if flags.Version {
-		version()
 	}
 
 	// get status page content

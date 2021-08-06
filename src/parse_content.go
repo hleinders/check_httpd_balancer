@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -27,9 +28,9 @@ func parseContent(flags flagType, content string) ([]BalancerPool, error) {
 	content = stripTags(content)
 
 	// prepare some RegExps
-	reBalancer := regexp.MustCompile(`LoadBalancer Status for balancer:`)
+	reBalancer := regexp.MustCompile(`LoadBalancer Status for (<a.+/a>)? balancer:`)
 	reBalancerName := regexp.MustCompile(`//\b(.+)\b`)
-	reWorkerData := regexp.MustCompile(`(ajp.?|http.?)://(\S+)\s+(\S+)\s+\d+\s+\d+\s+(\w+\s+\w+)`)
+	reWorkerData := regexp.MustCompile(`(ajp.?|http.?)://(\S+)\s+(\S+)\s+[\d.]+\s+\d+\s+(\w+\s+\w+)`)
 
 	list := reBalancer.Split(content, -1)
 
@@ -46,10 +47,20 @@ func parseContent(flags flagType, content string) ([]BalancerPool, error) {
 		// Yes, something found
 		pool := BalancerPool{}
 		poolFound = true
-		pool.Name = pTmp[1]
+		pFields := strings.Fields(pTmp[1])
+		pool.Name = pFields[0]
+		if len(pFields) > 1 {
+			pool.Nonce = pFields[1]
+		}
 
 		// Search for worker data:
-		for _, line := range strings.Split(block, "\n") {
+		for _, rawLine := range strings.Split(block, "\n") {
+			line := stripTags(rawLine)
+
+			/* 			if flags.Debug {
+			   				fmt.Println("*** Deb:" + line)
+			   			}
+			*/
 			if reWorkerData.MatchString(line) {
 				wTmp := reWorkerData.FindStringSubmatch(line)
 				if wTmp == nil || len(wTmp) < 5 {
@@ -71,7 +82,11 @@ func parseContent(flags flagType, content string) ([]BalancerPool, error) {
 
 	}
 
-	if poolFound == false {
+	if flags.Debug {
+		fmt.Printf("*** Deb: Pools found: %+v\n", poolList)
+	}
+
+	if !poolFound {
 		return nil, errors.New("BALANCER WARNING - No pools found")
 	}
 
