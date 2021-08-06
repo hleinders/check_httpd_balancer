@@ -7,6 +7,7 @@ import (
 
 // configType is a struct type for the main configuration
 type configType struct {
+	IPAddress string   `json:"IPAddress"`
 	Host      string   `json:"Host"`
 	Port      string   `json:"Port"`
 	URL       string   `json:"URL"`

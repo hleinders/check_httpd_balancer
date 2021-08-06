@@ -53,7 +53,8 @@ type flagType struct {
 // Update is a function to populate the flags from a config file
 func (f *flagType) Update(c configType) {
 	f.Port = choice(c.Port, f.Port, "")
-	f.Hostname = choice(c.Host, f.Hostname, "127.0.0.1")
+	f.IPAddress = choice(c.IPAddress, f.IPAddress, "")
+	f.Hostname = choice(c.Host, f.Hostname, "localhost")
 	f.URL = choice(c.URL, f.URL, "/balancer-manager")
 	f.UseSSL = f.UseSSL || c.UseSSL
 
