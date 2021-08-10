@@ -19,6 +19,9 @@ func GetContent(flags flagType) (string, error) {
 
 	var useIP bool = false
 
+	var client *http.Client
+	var defaultTtransport http.RoundTripper = &http.Transport{Proxy: nil}
+
 	if flags.UseSSL {
 		proto = "https"
 	} else {
@@ -46,7 +49,11 @@ func GetContent(flags flagType) (string, error) {
 		fmt.Fprintln(os.Stderr, "\nChecking: "+dsn+"\n")
 	}
 
-	client := &http.Client{}
+	if flags.NoProxy {
+		client = &http.Client{Transport: defaultTtransport}
+	} else {
+		client = &http.Client{}
+	}
 
 	req, err := http.NewRequest("GET", dsn, nil)
 	check(err)

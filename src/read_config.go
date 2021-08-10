@@ -12,6 +12,7 @@ type configType struct {
 	Port      string   `json:"Port"`
 	URL       string   `json:"URL"`
 	UseSSL    bool     `json:"UseSSL"`
+	NoProxy   bool     `json:"NoProxy"`
 	WorkerMap []string `json:"WorkerMap"`
 }
 

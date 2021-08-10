@@ -41,7 +41,7 @@ var agentString = "Golang: Apache Balancer Check (" + appVersion + ")"
 type flagType struct {
 	Help, Verbose, Debug, DryRun bool
 	Version, UseSSL              bool
-	FullStatus                   bool
+	FullStatus, NoProxy          bool
 	Hostname, IPAddress, Port    string
 	TimeOut, URL, Agent          string
 	Warning, Critical            int
@@ -57,6 +57,7 @@ func (f *flagType) Update(c configType) {
 	f.Hostname = choice(c.Host, f.Hostname, "localhost")
 	f.URL = choice(c.URL, f.URL, "/balancer-manager")
 	f.UseSSL = f.UseSSL || c.UseSSL
+	f.NoProxy = f.NoProxy || c.NoProxy
 
 	if len(c.WorkerMap) > 0 && f.WorkerMap == "" {
 		f.WorkerMap = strings.Join(c.WorkerMap, " ")
@@ -143,6 +144,7 @@ func main() {
 	flag.BoolVarP(&flags.Version, "version", "V", false, "Show version")
 	flag.BoolVarP(&flags.FullStatus, "full", "F", false, "Show full balancer status")
 	flag.BoolVarP(&flags.UseSSL, "ssl", "S", false, "Connect via SSL. Port defaults to 443")
+	flag.BoolVarP(&flags.NoProxy, "no-proxy", "N", false, "Diable proxy usage")
 
 	// ArgOpts
 	flag.StringVarP(&flags.Agent, "agent", "A", agentString, "user agent")
